@@ -1,6 +1,13 @@
-import axios from 'axios';
+import axios from "axios";
 
-const PISTON_API = 'https://emkc.org/api/v2/piston';
+const WANDBOX_COMPILERS: Record<string, string> = {
+  python: 'cpython-3.12.7',
+  cpp: 'gcc-13.2.0',
+  java: 'openjdk-jdk-22+36',
+  csharp: 'dotnetcore-8.0.402',
+  rust: 'rust-1.82.0',
+  lua: 'lua-5.4.7'
+};
 
 export interface PistonLanguage {
   language: string;
@@ -9,36 +16,39 @@ export interface PistonLanguage {
 }
 
 export async function getRuntimes(): Promise<PistonLanguage[]> {
-  try {
-    const response = await axios.get(`${PISTON_API}/runtimes`);
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching runtimes:', error);
-    return [];
-  }
+  return []; // Not needed with Wandbox approach
 }
 
-export async function executeCode(language: string, version: string, code: string): Promise<any> {
+export async function executeCode(
+  language: string,
+  version: string,
+  code: string,
+): Promise<any> {
   try {
-    const response = await axios.post(`${PISTON_API}/execute`, {
-      language,
-      version,
-      files: [
-        {
-          name: 'main',
-          content: code,
-        },
-      ],
-      stdin: '',
-      args: [],
-      compile_timeout: 10000,
-      run_timeout: 3000,
-      compile_memory_limit: -1,
-      run_memory_limit: -1,
+    const response = await axios.post("https://wandbox.org/api/compile.json", {
+      code,
+      compiler: WANDBOX_COMPILERS[language] || "cpython-3.12.7",
     });
-    return response.data;
-  } catch (error) {
-    console.error('Error executing code:', error);
+    const data = response.data;
+    const output = data.program_message || data.compiler_message || data.program_error || data.compiler_error || "";
+    
+    return {
+      run: {
+        output: output,
+      },
+      compile: {
+        output: data.compiler_message || "",
+      },
+    };
+  } catch (error: any) {
+    console.error("Error executing code:", error);
+    if (error.response && error.response.data) {
+       return {
+         run: {
+           output: error.response.data.program_message || error.response.data.compiler_message || error.message
+         }
+       };
+    }
     throw error;
   }
 }

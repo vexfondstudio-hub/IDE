@@ -1,4 +1,7 @@
-export function executeInSandbox(code: string, timeoutMs: number = 3000): Promise<string> {
+export function executeInSandbox(
+  code: string,
+  timeoutMs: number = 3000,
+): Promise<string> {
   return new Promise((resolve, reject) => {
     const workerCode = `
       let logOutput = '';
@@ -19,7 +22,7 @@ export function executeInSandbox(code: string, timeoutMs: number = 3000): Promis
       };
     `;
 
-    const blob = new Blob([workerCode], { type: 'application/javascript' });
+    const blob = new Blob([workerCode], { type: "application/javascript" });
     const workerUrl = URL.createObjectURL(blob);
     const worker = new Worker(workerUrl);
 
@@ -29,7 +32,11 @@ export function executeInSandbox(code: string, timeoutMs: number = 3000): Promis
       if (!isFinished) {
         worker.terminate();
         URL.revokeObjectURL(workerUrl);
-        reject(new Error(`Execution timed out after ${timeoutMs}ms (Infinite loop?)`));
+        reject(
+          new Error(
+            `Execution timed out after ${timeoutMs}ms (Infinite loop?)`,
+          ),
+        );
       }
     }, timeoutMs);
 
@@ -37,10 +44,14 @@ export function executeInSandbox(code: string, timeoutMs: number = 3000): Promis
       isFinished = true;
       clearTimeout(timeout);
       URL.revokeObjectURL(workerUrl);
-      if (e.data.type === 'success') {
-        resolve(e.data.output || 'Executed successfully with no output.');
+      if (e.data.type === "success") {
+        resolve(e.data.output || "Executed successfully with no output.");
       } else {
-        resolve((e.data.output ? e.data.output + '\\n' : '') + 'Error: ' + e.data.error);
+        resolve(
+          (e.data.output ? e.data.output + "\\n" : "") +
+            "Error: " +
+            e.data.error,
+        );
       }
       worker.terminate();
     };

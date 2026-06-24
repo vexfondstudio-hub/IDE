@@ -17,7 +17,7 @@ async function startServer() {
     try {
       const { code, language, error } = req.body;
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      
+
       let prompt = `You are an expert AI programming assistant. Analyze the following ${language} code. `;
       if (error) {
         prompt += `It produced the following error:\n${error}\n\n`;
@@ -37,9 +37,9 @@ async function startServer() {
         contents: prompt,
         config: {
           responseMimeType: "application/json",
-        }
+        },
       });
-      
+
       const responseText = response.text;
       if (!responseText) {
         throw new Error("No response from AI");
@@ -52,6 +52,68 @@ async function startServer() {
     }
   });
 
+  // AI Autocomplete Route
+  app.post("/api/complete", async (req, res) => {
+    try {
+      const { codeBefore, language, word } = req.body;
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+      const prompt = `You are a code completion engine for ${language}.
+Code before cursor:
+\`\`\`
+${codeBefore}
+\`\`\`
+Current word being typed: "${word}"
+
+Provide 3-5 short code completion suggestions (like method names, keywords, variables, short expressions) that fit this context.
+Return ONLY valid JSON in this exact format:
+{
+  "suggestions": ["completion1", "completion2"]
+}`;
+
+      let responseText = null;
+      let retries = 3;
+      while (retries > 0) {
+        try {
+          const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+              responseMimeType: "application/json",
+            },
+          });
+          responseText = response.text;
+          break; // Success
+        } catch (error: any) {
+          retries--;
+          const is503 =
+            error?.status === 503 ||
+            error?.message?.includes("503") ||
+            error?.message?.includes("UNAVAILABLE");
+          if (retries === 0 || !is503) {
+            throw error;
+          }
+          // Wait 1.5 seconds before retrying on 503
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+        }
+      }
+
+      if (!responseText) {
+        throw new Error("No response from AI");
+      }
+      const data = JSON.parse(responseText);
+      res.json(data);
+    } catch (err: any) {
+      const is429 = err?.status === 429 || err?.message?.includes("429") || err?.message?.includes("RESOURCE_EXHAUSTED") || err?.message?.includes("quota");
+      if (is429) {
+        // Silently fail on rate limit to prevent spamming errors to the user
+        return res.json({ suggestions: [] });
+      }
+      console.error("AI Complete Error:", err.message || err);
+      res.status(500).json({ error: "Failed to get completion" });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -60,10 +122,10 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
     });
   }
 
