@@ -1,0 +1,6 @@
+{
+  "name": "Joker IDE",
+  "description": "An online platform for writing, testing, and comparing code in multiple languages.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
