@@ -87,7 +87,7 @@ Return ONLY valid JSON in this exact format:
         try {
           // Use Groq for autocomplete (faster)
           const response = await groq.chat.completions.create({
-            model: "llama3-8b-8192",
+            model: "llama-3.1-8b-instant",
             messages: [{ role: "user", content: prompt }],
             response_format: { type: "json_object" },
           });
@@ -120,6 +120,34 @@ Return ONLY valid JSON in this exact format:
       }
       console.error("AI Complete Error:", err.message || err);
       res.status(500).json({ error: "Failed to get completion" });
+    }
+  });
+
+  // In-memory store for Arena scripts
+  let arenaScripts: any[] = [];
+
+  app.get("/api/arena", (req, res) => {
+    res.json(arenaScripts);
+  });
+
+  app.post("/api/arena", express.json(), (req, res) => {
+    const newScript = {
+      ...req.body,
+      id: Math.random().toString(36).substring(2, 9),
+      likes: 0,
+      createdAt: Date.now()
+    };
+    arenaScripts.push(newScript);
+    res.json(newScript);
+  });
+
+  app.post("/api/arena/:id/like", (req, res) => {
+    const script = arenaScripts.find(s => s.id === req.params.id);
+    if (script) {
+      script.likes += 1;
+      res.json(script);
+    } else {
+      res.status(404).json({ error: "Not found" });
     }
   });
 

@@ -226,10 +226,10 @@ export function EditorView() {
     }
   };
 
-  const handlePublish = () => {
+  const handlePublish = async () => {
     const title = prompt("Enter a title for your script:");
     if (title) {
-      saveArenaScript({
+      await saveArenaScript({
         title,
         language: language.id,
         version: language.pistonVersion,

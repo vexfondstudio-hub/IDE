@@ -8,6 +8,6 @@ export function revealKey(obfuscated: string): string {
 
 export const KEYS = {
   OR: revealKey("OTUyMDIxNDk0ZDMwNWQzM2JmZWQwNmViYzA3MWY5M2FiM2Q5MWMyYTI3YmQyMmVkNWJiYWU0YThmZTg0NTBjNC0xdi1yby1rcw=="),
-  GQ: revealKey("N0p2MTBPUEk1Z3o0UjdXVjQySWNTUlBZRlkzYmRHV0F4NmUzZHd5VEtib05VZm44WVBrX2tzZw=="),
-  AG: revealKey("ZzlRaGxFWVFWM3VSQnByaVA5dUNxVDhaTFB4QnlhX0tOSkNTclI4NzJLSzZOUjhiQS5RQQ==")
+  GQ: revealKey("N0p2MTBPUElnejM0UjdXVjQySWNTUnlQWUYzYnlkR1dBeDZlM2R3eVRLYk9OVWZuOFlQa19rc2c="),
+  AG: revealKey("ZzlRaGx5RVFWM3VSQnByaVA5dUNxVDhaTFA4Qnh5YV9LTkpDU3JSODcyS0s2TlI4YkEuUUE=")
 };

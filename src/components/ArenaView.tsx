@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { getArenaScripts, likeScript, ArenaScript } from "../lib/arenaStore";
+import { fetchArenaScripts, likeScript, ArenaScript } from "../lib/arenaStore";
 import { ThumbsUp, Code2, Play } from "lucide-react";
 import { executeCode } from "../lib/piston";
 import { executeInSandbox } from "../lib/sandbox";
@@ -9,13 +9,18 @@ export function ArenaView() {
   const [executingId, setExecutingId] = useState<string | null>(null);
   const [outputs, setOutputs] = useState<Record<string, string>>({});
 
+  const loadScripts = async () => {
+    const fetched = await fetchArenaScripts();
+    setScripts(fetched);
+  };
+
   useEffect(() => {
-    setScripts(getArenaScripts());
+    loadScripts();
   }, []);
 
-  const handleLike = (id: string) => {
-    likeScript(id);
-    setScripts(getArenaScripts());
+  const handleLike = async (id: string) => {
+    await likeScript(id);
+    await loadScripts();
   };
 
   const handleRun = async (script: ArenaScript) => {
