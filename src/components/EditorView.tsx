@@ -34,6 +34,7 @@ import { uploadToDrive, sendEmail } from "../lib/googleApi";
 import { saveArenaScript } from "../lib/arenaStore";
 import { googleSignIn, initAuth, emailSignIn, emailSignUp } from "../lib/auth";
 import { User } from "firebase/auth";
+import { ApkWorkspace } from "./ApkWorkspace";
 
 const LANGUAGES = [
   { id: "javascript", name: "JavaScript", pistonVersion: "18.15.0" },
@@ -63,6 +64,7 @@ export const EditorView = React.memo(() => {
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
   const [isEngineMenuOpen, setIsEngineMenuOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [showApkWorkspace, setShowApkWorkspace] = useState(false);
   const [code, setCode] = useState(DEFAULT_SNIPPETS["javascript"]);
   const [output, setOutput] = useState("");
   const [isRunning, setIsRunning] = useState(false);
@@ -342,6 +344,9 @@ export const EditorView = React.memo(() => {
             <button onClick={() => handleAnalyze()} disabled={isAnalyzing} className="bg-[#0e639c] hover:bg-[#1177bb] disabled:opacity-50 text-white text-xs px-3 py-1 rounded-sm flex items-center gap-1 transition-all">
               <Sparkles size={14} /> {isAnalyzing ? "Analyzing..." : "AI Suggestion"}
             </button>
+            <button onClick={() => setShowApkWorkspace(true)} className="bg-[#2ea043] hover:bg-[#3fb950] text-white text-xs px-3 py-1 rounded-sm flex items-center gap-1 transition-all">
+              APK Studio
+            </button>
           </div>
 
           <div className="flex items-center gap-1 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 scrollbar-hide">
@@ -468,6 +473,8 @@ export const EditorView = React.memo(() => {
           </div>
         </div>
       )}
+      
+      {showApkWorkspace && <ApkWorkspace onClose={() => setShowApkWorkspace(false)} />}
     </div>
   );
 });

@@ -33,6 +33,7 @@
     "express": "^4.21.2",
     "firebase": "^12.15.0",
     "framer-motion": "^12.41.0",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "openai": "^6.45.0",

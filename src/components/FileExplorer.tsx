@@ -15,6 +15,8 @@ export interface Snippet {
   languageId: string;
   code: string;
   updatedAt: number;
+  isBinary?: boolean;
+  binaryData?: Uint8Array;
 }
 
 interface FileExplorerProps {
