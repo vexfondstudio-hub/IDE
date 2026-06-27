@@ -51,9 +51,9 @@ export function ArenaView() {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#111218] text-slate-300 p-4 sm:p-8">
+    <div className="flex-1 overflow-y-auto bg-[#0F111A] text-slate-300 p-4 sm:p-8">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold mb-2 text-white tracking-tight">
+        <h1 className="text-2xl font-bold mb-2 text-slate-200 tracking-tight">
           Script Arena
         </h1>
         <p className="text-slate-500 mb-8 text-sm">
@@ -64,16 +64,16 @@ export function ArenaView() {
           {scripts.map((script) => (
             <div
               key={script.id}
-              className="bg-[#101218] border border-white/5 rounded-lg overflow-hidden transition-all hover:border-white/10 shadow-lg"
+              className="bg-[#141620] border border-white/5 rounded-lg overflow-hidden transition-all shadow-md"
             >
               <div className="p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row justify-between items-start mb-4 gap-3 sm:gap-0">
                   <div>
-                    <h3 className="text-lg font-semibold text-white mb-1">
+                    <h3 className="text-lg font-semibold text-slate-200 mb-1">
                       {script.title}
                     </h3>
                     <div className="flex items-center gap-3 text-[11px] font-medium text-slate-500 uppercase tracking-wider">
-                      <span className="flex items-center gap-1 text-purple-400">
+                      <span className="flex items-center gap-1 text-blue-400">
                         <Code2 size={14} /> {script.language}
                       </span>
                       <span>By {script.author}</span>
@@ -81,13 +81,13 @@ export function ArenaView() {
                   </div>
                   <button
                     onClick={() => handleLike(script.id)}
-                    className="flex items-center gap-2 text-slate-400 hover:text-purple-400 transition-colors bg-white/5 px-3 py-1.5 rounded-full text-xs font-semibold"
+                    className="flex items-center gap-2 text-slate-400 hover:text-blue-400 transition-colors bg-white/5 px-3 py-1.5 rounded-full text-xs font-semibold"
                   >
                     <ThumbsUp size={14} /> {script.likes}
                   </button>
                 </div>
 
-                <div className="bg-[#0B0C10] p-4 rounded text-[13px] font-mono text-slate-300 overflow-x-auto mb-4 border border-white/5">
+                <div className="bg-[#0A0C12] p-4 rounded text-[13px] font-mono text-slate-300 overflow-x-auto mb-4 border border-white/5">
                   <pre>{script.code}</pre>
                 </div>
 
@@ -95,7 +95,7 @@ export function ArenaView() {
                   <button
                     onClick={() => handleRun(script)}
                     disabled={executingId === script.id}
-                    className="bg-green-600/90 hover:bg-green-500 disabled:bg-green-800 text-white text-xs px-4 py-2 rounded-full font-semibold flex items-center gap-2 success-glow transition-all"
+                    className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs px-4 py-2 rounded-sm font-medium flex items-center gap-2 transition-colors"
                   >
                     <Play size={14} />
                     {executingId === script.id ? "Running..." : "Test Run"}

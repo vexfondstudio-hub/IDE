@@ -5,6 +5,9 @@ import OpenAI from "openai";
 import dotenv from "dotenv";
 import { startAutonomousAgent } from "./src/ai-agent";
 import { KEYS } from "./src/config";
+import http from "http";
+import { Server as SocketServer } from "socket.io";
+import { spawn } from "child_process";
 
 dotenv.config();
 
@@ -21,9 +24,66 @@ const groq = new OpenAI({
 
 async function startServer() {
   const app = express();
+  const server = http.createServer(app);
+  const io = new SocketServer(server, { cors: { origin: "*" } });
   const PORT = 3000;
 
+  // Socket.io for Real Terminal
+  io.on("connection", (socket) => {
+    let ptyProcess: any = null;
+
+    socket.on("terminal:start", () => {
+      if (ptyProcess) return;
+      ptyProcess = spawn("bash", [], {
+        name: "xterm-color",
+        cols: 80,
+        rows: 24,
+        cwd: process.cwd(),
+        env: process.env
+      } as any);
+
+      ptyProcess.stdout.on("data", (data: any) => {
+        socket.emit("terminal:data", data.toString());
+      });
+
+      ptyProcess.stderr.on("data", (data: any) => {
+        socket.emit("terminal:data", data.toString());
+      });
+
+      ptyProcess.on("exit", () => {
+        socket.emit("terminal:data", "\r\n*** Process exited ***\r\n");
+      });
+    });
+
+    socket.on("terminal:data", (data) => {
+      if (ptyProcess) {
+        ptyProcess.stdin.write(data);
+      }
+    });
+
+    socket.on("disconnect", () => {
+      if (ptyProcess) {
+        ptyProcess.kill();
+      }
+    });
+  });
+
   app.use(express.json());
+
+  // AI Chat Route
+  app.post("/api/chat", async (req, res) => {
+    try {
+      const { messages } = req.body;
+      const response = await openrouter.chat.completions.create({
+        model: "meta-llama/llama-3-8b-instruct",
+        messages: messages,
+      });
+      res.json({ reply: response.choices[0]?.message?.content });
+    } catch (err: any) {
+      console.error("AI Chat Error:", err);
+      res.status(500).json({ error: "Failed to get AI response" });
+    }
+  });
 
   // API Routes
   app.post("/api/analyze", async (req, res) => {
@@ -130,7 +190,7 @@ Return ONLY valid JSON in this exact format:
     res.json(arenaScripts);
   });
 
-  app.post("/api/arena", express.json(), (req, res) => {
+  app.post("/api/arena", (req, res) => {
     const newScript = {
       ...req.body,
       id: Math.random().toString(36).substring(2, 9),
@@ -166,7 +226,7 @@ Return ONLY valid JSON in this exact format:
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  server.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
     
     // Запускаем фонового ИИ-агента
