@@ -2,12 +2,12 @@ import React, { useState, useEffect } from "react";
 import {
   FolderOpen,
   FileText,
-  Trash2,
+  Trash as Trash2,
   Plus,
-  Edit2,
+  PencilSimple as Edit2,
   X,
   Check,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 
 export interface Snippet {
   id: string;

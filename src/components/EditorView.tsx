@@ -27,7 +27,7 @@ import "prismjs/components/prism-markup";
 import "prismjs/themes/prism-tomorrow.css";
 import { CodeJarEditor } from "./CodeJarEditor";
 import { FileExplorer, Snippet } from "./FileExplorer";
-import { Play, Download, Upload, Share2, Cloud, Sparkles, ChevronDown, Menu } from "lucide-react";
+import { Play, DownloadSimple as Download, UploadSimple as Upload, ShareNetwork as Share2, Cloud, Sparkle as Sparkles, CaretDown as ChevronDown, List as Menu } from "@phosphor-icons/react";
 import { executeCode } from "../lib/piston";
 import { executeInSandbox } from "../lib/sandbox";
 import { uploadToDrive, sendEmail } from "../lib/googleApi";

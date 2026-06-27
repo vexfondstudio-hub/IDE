@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, memo, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Send, Bot, User } from "lucide-react";
+import { PaperPlaneRight as Send, Robot as Bot, User } from "@phosphor-icons/react";
 
 interface Message {
   role: "user" | "assistant" | "system";
