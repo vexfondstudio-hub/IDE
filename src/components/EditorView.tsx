@@ -32,7 +32,7 @@ import { executeCode } from "../lib/piston";
 import { executeInSandbox } from "../lib/sandbox";
 import { uploadToDrive, sendEmail } from "../lib/googleApi";
 import { saveArenaScript } from "../lib/arenaStore";
-import { googleSignIn, initAuth } from "../lib/auth";
+import { googleSignIn, initAuth, emailSignIn, emailSignUp } from "../lib/auth";
 import { User } from "firebase/auth";
 
 const LANGUAGES = [
@@ -68,6 +68,10 @@ export const EditorView = React.memo(() => {
   const [isRunning, setIsRunning] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [isSignUp, setIsSignUp] = useState(false);
   const [shareEmail, setShareEmail] = useState("");
   const [aiHint, setAiHint] = useState<{title: string; description: string; suggestion: string} | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -163,6 +167,31 @@ export const EditorView = React.memo(() => {
       setShowShareModal(false);
     } catch (e: any) {
       alert(`Error sending email: ${e.message}`);
+    }
+  };
+
+  const handleEmailLogin = async () => {
+    try {
+      if (isSignUp) {
+        await emailSignUp(loginEmail, loginPassword);
+      } else {
+        await emailSignIn(loginEmail, loginPassword);
+      }
+      setShowLoginModal(false);
+      setLoginEmail("");
+      setLoginPassword("");
+    } catch (error: any) {
+      if (error.code === 'auth/operation-not-allowed') {
+        alert(`Ошибка: Авторизация по Email/Паролю не включена в Firebase.\n\nПожалуйста, перейдите в консоль Firebase -> Authentication -> Sign-in method и включите "Email/Password".`);
+      } else if (error.code === 'auth/weak-password') {
+        alert('Пароль должен содержать минимум 6 символов.');
+      } else if (error.code === 'auth/email-already-in-use') {
+        alert('Этот Email уже используется.');
+      } else if (error.code === 'auth/invalid-credential') {
+        alert('Неверный Email или пароль.');
+      } else {
+        alert(`${isSignUp ? 'Sign up' : 'Login'} failed: ${error.message}`);
+      }
     }
   };
 
@@ -336,7 +365,7 @@ export const EditorView = React.memo(() => {
                 </button>
               </>
             ) : (
-              <button onClick={() => googleSignIn()} className="flex items-center gap-1 hover:bg-[#4d4d4d] px-2 py-1 rounded-sm transition-colors text-xs text-[#3794ff] shrink-0">
+              <button onClick={() => setShowLoginModal(true)} className="flex items-center gap-1 hover:bg-[#4d4d4d] px-2 py-1 rounded-sm transition-colors text-xs text-[#3794ff] shrink-0">
                 Sign in
               </button>
             )}
@@ -412,6 +441,29 @@ export const EditorView = React.memo(() => {
             <div className="flex justify-end gap-2">
               <button onClick={() => setShowShareModal(false)} className="px-3 py-1.5 text-xs font-medium text-[#cccccc] hover:bg-[#4d4d4d] rounded-sm transition-colors">Cancel</button>
               <button onClick={handleEmailShare} className="px-3 py-1.5 text-xs font-medium bg-[#0e639c] hover:bg-[#1177bb] text-white rounded-sm transition-colors">Send</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLoginModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#252526] p-5 rounded-sm border border-[#454545] shadow-2xl w-96">
+            <h3 className="text-sm font-semibold text-[#cccccc] mb-4">{isSignUp ? 'Sign Up' : 'Sign In'}</h3>
+            <p className="text-xs text-slate-400 mb-4">
+              {isSignUp ? 'Create a new account.' : 'Sign in to your account.'}
+            </p>
+            <input type="email" placeholder="Email address" className="w-full bg-[#3c3c3c] border border-[#3c3c3c] rounded-sm px-3 py-2 mb-3 outline-none focus:border-[#007fd4] text-sm text-[#cccccc]" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} />
+            <input type="password" placeholder="Password" className="w-full bg-[#3c3c3c] border border-[#3c3c3c] rounded-sm px-3 py-2 mb-4 outline-none focus:border-[#007fd4] text-sm text-[#cccccc]" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} />
+            <div className="flex justify-between items-center mb-4">
+              <button onClick={() => googleSignIn().then(() => setShowLoginModal(false)).catch((e) => { if (e.code !== 'auth/popup-closed-by-user') alert(e.message); })} className="text-xs text-[#3794ff] hover:text-[#007fd4] transition-colors">Sign in with Google</button>
+              <button onClick={() => setIsSignUp(!isSignUp)} className="text-xs text-[#cccccc] hover:text-white transition-colors">
+                {isSignUp ? 'Already have an account?' : 'Need an account?'}
+              </button>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowLoginModal(false)} className="px-3 py-1.5 text-xs font-medium text-[#cccccc] hover:bg-[#4d4d4d] rounded-sm transition-colors">Cancel</button>
+              <button onClick={handleEmailLogin} className="px-3 py-1.5 text-xs font-medium bg-[#0e639c] hover:bg-[#1177bb] text-white rounded-sm transition-colors">{isSignUp ? 'Sign Up' : 'Sign In'}</button>
             </div>
           </div>
         </div>
