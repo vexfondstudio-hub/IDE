@@ -2,6 +2,10 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { vscodeDark } from "@uiw/codemirror-theme-vscode";
 import { langs } from "@uiw/codemirror-extensions-langs";
+import { material } from "@uiw/codemirror-theme-material";
+import { dracula } from "@uiw/codemirror-theme-dracula";
+import { githubDark } from "@uiw/codemirror-theme-github";
+import { nord } from "@uiw/codemirror-theme-nord";
 import { autocompletion, CompletionContext, CompletionResult } from "@codemirror/autocomplete";
 import MonacoEditor from "@monaco-editor/react";
 import AceEditor from "react-ace";
@@ -27,7 +31,8 @@ import "prismjs/components/prism-markup";
 import "prismjs/themes/prism-tomorrow.css";
 import { CodeJarEditor } from "./CodeJarEditor";
 import { FileExplorer, Snippet } from "./FileExplorer";
-import { Play, DownloadSimple as Download, UploadSimple as Upload, ShareNetwork as Share2, Cloud, Sparkle as Sparkles, CaretDown as ChevronDown, List as Menu } from "@phosphor-icons/react";
+import { Play, Download, Upload, Share2, Cloud, Sparkles, ChevronDown, Menu, Wand2 as MagicWand } from "lucide-react";
+import beautify from "js-beautify";
 import { executeCode } from "../lib/piston";
 import { executeInSandbox } from "../lib/sandbox";
 import { uploadToDrive, sendEmail } from "../lib/googleApi";
@@ -61,8 +66,10 @@ const DEFAULT_SNIPPETS: Record<string, string> = {
 export const EditorView = React.memo(() => {
   const [language, setLanguage] = useState(LANGUAGES[0]);
   const [editorEngine, setEditorEngine] = useState<"codemirror" | "monaco" | "ace" | "simple" | "codejar">("codemirror");
+  const [theme, setTheme] = useState("vscodeDark");
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
   const [isEngineMenuOpen, setIsEngineMenuOpen] = useState(false);
+  const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showApkWorkspace, setShowApkWorkspace] = useState(false);
   const [code, setCode] = useState(DEFAULT_SNIPPETS["javascript"]);
@@ -80,6 +87,7 @@ export const EditorView = React.memo(() => {
   const [currentSnippetId, setCurrentSnippetId] = useState<string | null>(null);
   const langMenuRef = useRef<HTMLDivElement>(null);
   const engineMenuRef = useRef<HTMLDivElement>(null);
+  const themeMenuRef = useRef<HTMLDivElement>(null);
   const currentLangRef = useRef(language.id);
 
   useEffect(() => { currentLangRef.current = language.id; }, [language.id]);
@@ -92,6 +100,7 @@ export const EditorView = React.memo(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (langMenuRef.current && !langMenuRef.current.contains(event.target as Node)) setIsLangMenuOpen(false);
       if (engineMenuRef.current && !engineMenuRef.current.contains(event.target as Node)) setIsEngineMenuOpen(false);
+      if (themeMenuRef.current && !themeMenuRef.current.contains(event.target as Node)) setIsThemeMenuOpen(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -114,6 +123,34 @@ export const EditorView = React.memo(() => {
       console.error("Failed to get AI hint", e);
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+  
+  const handleFormat = () => {
+    try {
+      let formatted = code;
+      const opts = { indent_size: 2, space_in_empty_paren: true };
+      if (language.id === "javascript" || language.id === "json") {
+        formatted = beautify.js(code, opts);
+      } else if (language.id === "html") {
+        formatted = beautify.html(code, opts);
+      } else if (language.id === "css") {
+        formatted = beautify.css(code, opts);
+      }
+      setCode(formatted);
+    } catch (e) {
+      console.error("Formatting failed", e);
+    }
+  };
+
+  const getTheme = () => {
+    switch (theme) {
+      case "vscodeDark": return vscodeDark;
+      case "material": return material;
+      case "dracula": return dracula;
+      case "github": return githubDark;
+      case "nord": return nord;
+      default: return vscodeDark;
     }
   };
 
@@ -338,14 +375,35 @@ export const EditorView = React.memo(() => {
               )}
             </div>
 
+            <div className="relative" ref={themeMenuRef}>
+              <button onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)} className="flex items-center justify-between gap-2 bg-[#3c3c3c] hover:bg-[#4d4d4d] text-[#cccccc] px-3 py-1 rounded-sm text-xs font-medium outline-none transition-colors w-32">
+                Theme: {theme} <ChevronDown size={14} className={`transition-transform duration-200 ${isThemeMenuOpen ? "rotate-180" : ""}`} />
+              </button>
+              {isThemeMenuOpen && (
+                <div className="absolute top-full left-0 mt-1 w-48 bg-[#252526] border border-[#454545] rounded-sm shadow-xl overflow-hidden py-1 z-50">
+                  {["vscodeDark", "material", "dracula", "github", "nord"].map((t) => (
+                    <button key={t} onClick={() => { setTheme(t); setIsThemeMenuOpen(false); }} className={`w-full text-left px-4 py-1.5 text-xs font-medium transition-colors ${theme === t ? "bg-[#094771] text-white" : "text-[#cccccc] hover:bg-[#2a2d2e]"}`}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <button onClick={handleRun} disabled={isRunning} className="bg-[#0e639c] hover:bg-[#1177bb] disabled:opacity-50 text-white text-xs px-3 py-1 rounded-sm flex items-center gap-1 transition-all">
               <Play size={14} /> {isRunning ? "Running..." : "Run"}
             </button>
-            <button onClick={() => handleAnalyze()} disabled={isAnalyzing} className="bg-[#0e639c] hover:bg-[#1177bb] disabled:opacity-50 text-white text-xs px-3 py-1 rounded-sm flex items-center gap-1 transition-all">
+            <button onClick={handleFormat} className="bg-[#3c3c3c] hover:bg-[#4d4d4d] text-white text-xs px-3 py-1 rounded-sm flex items-center gap-1 transition-all" title="Format Code">
+              <MagicWand size={14} /> Format
+            </button>
+            <button onClick={() => handleAnalyze()} disabled={isAnalyzing} className="bg-[#0e639c] hover:bg-[#1177bb] disabled:opacity-50 text-white text-xs px-3 py-1 rounded-sm flex items-center gap-1 transition-all" title="Get AI Help">
               <Sparkles size={14} /> {isAnalyzing ? "Analyzing..." : "AI Suggestion"}
             </button>
-            <button onClick={() => setShowApkWorkspace(true)} className="bg-[#2ea043] hover:bg-[#3fb950] text-white text-xs px-3 py-1 rounded-sm flex items-center gap-1 transition-all">
-              APK Studio
+            <button onClick={() => handleAnalyze("Please refactor this code to follow best practices and optimize it.")} disabled={isAnalyzing} className="bg-[#8957e5] hover:bg-[#9a68f6] disabled:opacity-50 text-white text-xs px-3 py-1 rounded-sm flex items-center gap-1 transition-all" title="Refactor Code with AI">
+              <Sparkles size={14} /> Refactor
+            </button>
+            <button onClick={() => setShowApkWorkspace(true)} className="bg-[#2ea043] hover:bg-[#3fb950] text-white text-xs px-3 py-1 rounded-sm flex items-center gap-1 transition-all font-semibold">
+              APK Studio Pro
             </button>
           </div>
 
@@ -380,7 +438,7 @@ export const EditorView = React.memo(() => {
         <div className="flex-1 flex flex-col md:flex-row min-h-0">
           <div className="flex-1 border-b md:border-b-0 md:border-r border-[#333333] min-h-[50vh] md:min-h-0 relative">
             {editorEngine === "codemirror" && (
-              <CodeMirror value={code} height="100%" theme={vscodeDark} extensions={extensions} onChange={(val) => setCode(val)} className="absolute inset-0 text-base" style={{ fontFamily: '"JetBrains Mono", monospace' }} />
+              <CodeMirror value={code} height="100%" theme={getTheme()} extensions={extensions} onChange={(val) => setCode(val)} className="absolute inset-0 text-base" style={{ fontFamily: '"JetBrains Mono", monospace' }} />
             )}
             {editorEngine === "monaco" && (
               <MonacoEditor height="100%" language={language.id === "cpp" ? "cpp" : language.id} theme="vs-dark" value={code} onChange={(val) => setCode(val || "")} options={{ minimap: { enabled: false }, fontSize: 14, fontFamily: '"JetBrains Mono", monospace', padding: { top: 16 } }} />

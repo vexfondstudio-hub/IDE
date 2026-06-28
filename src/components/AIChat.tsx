@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, memo, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { PaperPlaneRight as Send, Robot as Bot, User } from "@phosphor-icons/react";
+import { Send, Bot, User } from "lucide-react";
 
 interface Message {
   role: "user" | "assistant" | "system";
@@ -53,8 +53,14 @@ export const AIChat = memo(() => {
 
   return (
     <div className="w-full h-full flex flex-col bg-[#0F111A]">
-      <div className="h-10 border-b border-white/5 flex items-center px-4 shrink-0 bg-[#141620]">
+      <div className="h-10 border-b border-white/5 flex items-center justify-between px-4 shrink-0 bg-[#141620]">
         <h2 className="text-sm font-medium text-slate-400">AI Assistant</h2>
+        <button 
+          onClick={() => setMessages([{ role: "assistant", content: "Hello! I am your AI assistant. How can I help you write code today?" }])}
+          className="text-[10px] text-slate-500 hover:text-white px-2 py-1 rounded hover:bg-white/5 transition-colors"
+        >
+          Clear Chat
+        </button>
       </div>
       
       <div className="flex-1 overflow-y-auto p-4 space-y-4 text-sm">

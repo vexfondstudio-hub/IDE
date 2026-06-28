@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from "dotenv";
 import { startAutonomousAgent } from "./src/ai-agent";
 import { KEYS } from "./src/config";
@@ -21,6 +22,8 @@ const groq = new OpenAI({
   baseURL: "https://api.groq.com/openai/v1",
   apiKey: process.env.GROQ_API_KEY || KEYS.GQ,
 });
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || KEYS.AG);
 
 async function startServer() {
   const app = express();
@@ -55,6 +58,13 @@ async function startServer() {
       });
     });
 
+    socket.on("terminal:resize", ({ cols, rows }) => {
+      if (ptyProcess && ptyProcess.resize) {
+        // Note: native spawn doesn't have .resize, but if we used node-pty it would.
+        // For standard spawn we can't easily resize but we can try to set env
+      }
+    });
+
     socket.on("terminal:data", (data) => {
       if (ptyProcess) {
         ptyProcess.stdin.write(data);
@@ -68,7 +78,8 @@ async function startServer() {
     });
   });
 
-  app.use(express.json());
+  app.use(express.json({ limit: "500mb" }));
+  app.use(express.urlencoded({ limit: "500mb", extended: true }));
 
   // AI Chat Route
   app.post("/api/chat", async (req, res) => {
@@ -92,7 +103,7 @@ async function startServer() {
 
       let prompt = `You are an expert AI programming assistant. Analyze the following ${language} code. `;
       if (error) {
-        prompt += `It produced the following error:\n${error}\n\n`;
+        prompt += `The user requested the following or it produced this error:\n${error}\n\n`;
       } else {
         prompt += `Identify any potential bugs, inefficiencies, or logic errors.\n\n`;
       }
@@ -120,6 +131,92 @@ async function startServer() {
     } catch (err: any) {
       console.error("AI Analysis Error:", err);
       res.status(500).json({ error: "Failed to analyze code" });
+    }
+  });
+
+  app.post("/api/apk-edit", async (req, res) => {
+    try {
+      const { prompt, systemPrompt, files } = req.body;
+
+      let aiPrompt = `${systemPrompt || "You are CoKe 1.0, an elite Android APK Modding and Analysis AI. You have absolute mastery over smali, AndroidManifest.xml, and resource files."}\n\n`;
+      aiPrompt += `USER REQUEST: "${prompt}"\n\n`;
+      aiPrompt += `CONTEXT FILES:\n`;
+      
+      files.forEach((f: any) => {
+        aiPrompt += `### FILE: ${f.path}\n${f.content}\n\n`;
+      });
+      
+      aiPrompt += `INSTRUCTIONS:
+1. Analyze the request and the provided files.
+2. Determine which files need modification to satisfy the request.
+3. Return a JSON object with an "edits" array.
+4. Each edit must contain "path" and "content" (full file content).
+5. BE PRECISE. If you are translating, translate ONLY the requested parts while keeping XML structure intact.
+
+JSON SCHEMA:
+{
+  "edits": [
+    { "path": "path/to/file", "content": "..." }
+  ]
+}`;
+
+      let responseText = "";
+      let success = false;
+
+      // Try Puter AI first (if user requested it)
+      try {
+        const puterResponse = await fetch("https://api.puter.com/v1/ai/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${process.env.PUTER_API_KEY || "public"}` // Trying with public or key
+          },
+          body: JSON.stringify({
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: aiPrompt }
+            ],
+            model: "gpt-4o-mini",
+            stream: false
+          })
+        });
+
+        if (puterResponse.ok) {
+          const puterData = await puterResponse.json();
+          responseText = puterData.choices[0]?.message?.content || "";
+          if (responseText) success = true;
+        }
+      } catch (e) {
+        console.warn("Puter AI failed, falling back to Gemini:", e);
+      }
+
+      // Use Gemini 1.5 Flash for reliability
+      if (!success) {
+        const model = genAI.getGenerativeModel({ 
+          model: "gemini-1.5-flash",
+          generationConfig: { responseMimeType: "application/json" }
+        });
+        const result = await model.generateContent(aiPrompt);
+        responseText = result.response.text();
+      }
+      
+      let parsed;
+      try {
+        parsed = JSON.parse(responseText);
+      } catch (e) {
+        // Fallback for non-JSON responses
+        const match = responseText.match(/\{[\s\S]*\}/);
+        if (match) {
+          parsed = JSON.parse(match[0]);
+        } else {
+          throw new Error("Invalid AI Response Format");
+        }
+      }
+
+      res.json(parsed);
+    } catch (err: any) {
+      console.error("APK AI Edit Error:", err);
+      res.status(500).json({ error: err.message || "Failed to edit APK with AI" });
     }
   });
 

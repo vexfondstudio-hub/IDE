@@ -1,6 +1,6 @@
 {
-  "name": "Joker IDE",
-  "description": "An online platform for writing, testing, and comparing code in multiple languages.",
+  "name": "Joker Dev Studio",
+  "description": "An advanced online platform for coding, testing, and APK modding with AI CoKe 1.0 assistant.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

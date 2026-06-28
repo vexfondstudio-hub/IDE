@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { fetchArenaScripts, likeScript, ArenaScript } from "../lib/arenaStore";
-import { ThumbsUp, Code as Code2, Play } from "@phosphor-icons/react";
+import { ThumbsUp, Code2, Play } from "lucide-react";
 import { executeCode } from "../lib/piston";
 import { executeInSandbox } from "../lib/sandbox";
 

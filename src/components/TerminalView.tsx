@@ -50,8 +50,12 @@ export const TerminalView = memo(() => {
 
     const handleResize = () => {
       fitAddon.fit();
+      socket.emit("terminal:resize", { cols: term.cols, rows: term.rows });
     };
     
+    // Initial resize
+    setTimeout(handleResize, 100);
+
     window.addEventListener("resize", handleResize);
 
     return () => {
@@ -63,8 +67,14 @@ export const TerminalView = memo(() => {
 
   return (
     <div className="w-full h-full flex flex-col bg-[#0F111A]">
-      <div className="h-10 border-b border-white/5 flex items-center px-4 shrink-0">
+      <div className="h-10 border-b border-white/5 flex items-center justify-between px-4 shrink-0">
         <h2 className="text-sm font-medium text-slate-400">Terminal</h2>
+        <button 
+          onClick={() => xtermRef.current?.clear()}
+          className="text-[10px] text-slate-500 hover:text-white px-2 py-1 rounded hover:bg-white/5 transition-colors"
+        >
+          Clear Console
+        </button>
       </div>
       <div className="flex-1 overflow-hidden p-2">
         <div ref={terminalRef} className="w-full h-full" />
