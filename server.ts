@@ -25,6 +25,138 @@ const groq = new OpenAI({
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || KEYS.AG);
 
+// Helper to perform OpenRouter requests with dynamic token and model fallback
+async function callOpenRouterWithFallback(params: {
+  messages: any[];
+  response_format?: any;
+  max_tokens?: number;
+  temperature?: number;
+}) {
+  // Ordered list of models to try. We start with Google Gemini 2.5 Flash as standard,
+  // then fallback to Gemini 2.5 Flash Free (does not require paid credits),
+  // then Llama 3.1 8B Free, then Qwen 2.5 72B Instruct Free.
+  const modelsToTry = [
+    "google/gemini-2.5-flash",
+    "google/gemini-2.5-flash:free",
+    "meta-llama/llama-3.1-8b-instruct:free",
+    "qwen/qwen-2-72b-instruct:free",
+    "meta-llama/llama-3-8b-instruct"
+  ];
+
+  let lastError: any = null;
+  let maxTokens = params.max_tokens || 2000;
+
+  for (const model of modelsToTry) {
+    try {
+      console.log(`[AI fallback] Trying OpenRouter with model: ${model}, max_tokens: ${maxTokens}`);
+      const options: any = {
+        model: model,
+        messages: params.messages,
+        max_tokens: maxTokens,
+      };
+      if (params.response_format) {
+        options.response_format = params.response_format;
+      }
+      if (params.temperature !== undefined) {
+        options.temperature = params.temperature;
+      }
+
+      const response = await openrouter.chat.completions.create(options);
+      const content = response.choices[0]?.message?.content;
+      if (content !== undefined && content !== null) {
+        console.log(`[AI fallback] Success with model: ${model}!`);
+        return content;
+      }
+    } catch (err: any) {
+      console.warn(`[AI fallback] Model ${model} failed:`, err.message || err);
+      lastError = err;
+
+      // Check for specific payment/credit or token-budget errors from OpenRouter
+      const errStr = String(err.message || err);
+      
+      if (errStr.includes("credits") || errStr.includes("afford") || errStr.includes("402")) {
+        // e.g., "You requested up to 65535 tokens, but can only afford 2425."
+        const match = errStr.match(/can only afford (\d+)/i);
+        if (match) {
+          const affordable = parseInt(match[1], 10);
+          console.log(`[AI fallback] OpenRouter says we can only afford ${affordable} tokens. Adjusting limit.`);
+          maxTokens = Math.max(128, Math.min(maxTokens, Math.floor(affordable * 0.8)));
+        } else {
+          maxTokens = Math.max(128, Math.floor(maxTokens * 0.5));
+        }
+      }
+    }
+  }
+
+  throw lastError || new Error("All OpenRouter models failed");
+}
+
+// Global resilient helper to get an AI response from OpenRouter with Puter & Gemini fallbacks
+async function generateAIResponse(params: {
+  messages: any[];
+  response_format?: any;
+  max_tokens?: number;
+  temperature?: number;
+}) {
+  // 1. Try OpenRouter first with automatic model and token scaling
+  try {
+    return await callOpenRouterWithFallback(params);
+  } catch (err: any) {
+    console.warn("[AI unified] All OpenRouter models failed, trying Puter AI as fallback...", err.message || err);
+  }
+
+  // 2. Try Puter AI as second fallback
+  try {
+    const systemMsg = params.messages.find(m => m.role === "system")?.content || "";
+    const userMsgs = params.messages.filter(m => m.role === "user").map(m => m.content).join("\n\n");
+    const puterResponse = await fetch("https://api.puter.com/v1/ai/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.PUTER_API_KEY || "public"}`
+      },
+      body: JSON.stringify({
+        messages: [
+          { role: "system", content: systemMsg || "You are an expert AI programming assistant." },
+          { role: "user", content: userMsgs }
+        ],
+        model: "gpt-4o-mini",
+        stream: false
+      })
+    });
+
+    if (puterResponse.ok) {
+      const puterData = await puterResponse.json();
+      const content = puterData.choices[0]?.message?.content || "";
+      if (content) {
+        console.log("[AI unified] Success with Puter AI!");
+        return content;
+      }
+    }
+  } catch (e: any) {
+    console.warn("[AI unified] Puter AI fallback failed:", e.message || e);
+  }
+
+  // 3. Try direct Gemini (GoogleGenerativeAI) as final fallback
+  try {
+    const userMsgs = params.messages.filter(m => m.role === "user").map(m => m.content).join("\n\n");
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      generationConfig: params.response_format ? { responseMimeType: "application/json" } : undefined
+    });
+    const result = await model.generateContent(userMsgs);
+    const content = result.response.text();
+    if (content) {
+      console.log("[AI unified] Success with direct Gemini!");
+      return content;
+    }
+  } catch (e: any) {
+    console.error("[AI unified] Direct Gemini fallback failed:", e.message || e);
+  }
+
+  throw new Error("All AI Providers (OpenRouter, Puter, and Gemini) failed. Please check your credentials or token budget.");
+}
+
 async function startServer() {
   const app = express();
   const server = http.createServer(app);
@@ -85,11 +217,11 @@ async function startServer() {
   app.post("/api/chat", async (req, res) => {
     try {
       const { messages } = req.body;
-      const response = await openrouter.chat.completions.create({
-        model: "meta-llama/llama-3-8b-instruct",
+      const content = await generateAIResponse({
         messages: messages,
+        max_tokens: 2000,
       });
-      res.json({ reply: response.choices[0]?.message?.content });
+      res.json({ reply: content });
     } catch (err: any) {
       console.error("AI Chat Error:", err);
       res.status(500).json({ error: "Failed to get AI response" });
@@ -115,14 +247,12 @@ async function startServer() {
   "suggestion": "The COMPLETE corrected code (all original code plus fixes, ready to completely replace the user's code)."
 }`;
 
-      // Use OpenRouter for analysis
-      const response = await openrouter.chat.completions.create({
-        model: "meta-llama/llama-3-8b-instruct", // or any other suitable OpenRouter model
+      const responseText = await generateAIResponse({
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
+        max_tokens: 2000,
       });
 
-      const responseText = response.choices[0]?.message?.content;
       if (!responseText) {
         throw new Error("No response from AI");
       }
@@ -160,46 +290,15 @@ JSON SCHEMA:
   ]
 }`;
 
-      let responseText = "";
-      let success = false;
+      const responseText = await generateAIResponse({
+        messages: [
+          { role: "system", content: systemPrompt || "You are CoKe 1.0, an elite Android APK Modding and Analysis AI." },
+          { role: "user", content: aiPrompt }
+        ],
+        response_format: { type: "json_object" },
+        max_tokens: 2000
+      });
 
-      // Try Puter AI first (if user requested it)
-      try {
-        const puterResponse = await fetch("https://api.puter.com/v1/ai/chat", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${process.env.PUTER_API_KEY || "public"}` // Trying with public or key
-          },
-          body: JSON.stringify({
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: aiPrompt }
-            ],
-            model: "gpt-4o-mini",
-            stream: false
-          })
-        });
-
-        if (puterResponse.ok) {
-          const puterData = await puterResponse.json();
-          responseText = puterData.choices[0]?.message?.content || "";
-          if (responseText) success = true;
-        }
-      } catch (e) {
-        console.warn("Puter AI failed, falling back to Gemini:", e);
-      }
-
-      // Use Gemini 1.5 Flash for reliability
-      if (!success) {
-        const model = genAI.getGenerativeModel({ 
-          model: "gemini-1.5-flash",
-          generationConfig: { responseMimeType: "application/json" }
-        });
-        const result = await model.generateContent(aiPrompt);
-        responseText = result.response.text();
-      }
-      
       let parsed;
       try {
         parsed = JSON.parse(responseText);
